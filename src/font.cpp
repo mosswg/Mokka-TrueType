@@ -229,58 +229,8 @@ namespace mka {
 		edges.emplace_back(points);
 	}
 
-	unsigned int font::get_glyph_offset(int glyph_index) const {
-		unsigned int g1, g2;
-
-		if (glyph_index >= this->numGlyphs) return -1; // glyph index out of range
-		if (this->indexToLocFormat >= 2) return -1; // unknown index->glyph map format
-
-		if (this->indexToLocFormat == 0) {
-			g1 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2) * 2;
-			g2 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2 + 2) * 2;
-			} else {
-			g1 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4);
-			g2 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4 + 4);
-		}
-
-		return (g1 == g2) ? -2 : g1; // if length is 0, return -1
-	}
-
-	mka::buf font::cid_get_glyph_subrs(int glyph_index) {
-		unsigned int nranges, start, end, v, fmt, fdselector = -1, i;
-
-		this->fdselect.seek(0);
-		fmt = this->fdselect.get8();
-		if (fmt == 0) {
-			// untested
-			this->fdselect.skip(glyph_index);
-			fdselector = this->fdselect.get8();
-		} else if (fmt == 3) {
-			nranges = this->fdselect.get(2);
-			start = this->fdselect.get(2);
-			for (i = 0; i < nranges; i++) {
-				v = this->fdselect.get8();
-				end = this->fdselect.get(2);
-				if (glyph_index >= start && glyph_index < end) {
-					fdselector = v;
-					break;
-				}
-				start = end;
-			}
-		}
-		if (fdselector == -1) buf(nullptr, 0);
-		unsigned int subrsoff = 0, private_loc[2] = {0, 0};
-
-		this->fontdicts.cff_index_get(fdselector).get_ints(18, 2, private_loc);
-		if (!private_loc[1] || !private_loc[0]) return {nullptr, 0};
-		cff.get_range(private_loc[1], private_loc[0]).get_ints(19, 1, &subrsoff);
-		if (!subrsoff) return {nullptr, 0};
-		cff.seek(private_loc[1] + subrsoff);
-		return cff.cff_get_index();
-	}
-
 	static int close_shape(bezier_curve *vertices, int num_vertices, int was_off, int start_off,
-								  int sx, int sy, int scx, int scy, int cx, int cy)
+						   int sx, int sy, int scx, int scy, int cx, int cy)
 	{
 		if (start_off) {
 			if (was_off) {
@@ -312,6 +262,23 @@ namespace mka {
 			}
 		}
 		return num_vertices;
+	}
+
+	unsigned int font::get_glyph_offset(int glyph_index) const {
+		unsigned int g1, g2;
+
+		if (glyph_index >= this->numGlyphs) return -1; // glyph index out of range
+		if (this->indexToLocFormat >= 2) return -1; // unknown index->glyph map format
+
+		if (this->indexToLocFormat == 0) {
+			g1 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2) * 2;
+			g2 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2 + 2) * 2;
+			} else {
+			g1 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4);
+			g2 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4 + 4);
+		}
+
+		return (g1 == g2) ? -1 : g1; // if length is 0, return -1
 	}
 
 
@@ -400,7 +367,6 @@ namespace mka {
 					}
 				}
 				vertices[off+i][0].y = (short) y;
-//				std::cout << "y: " << y << std::endl;
 			}
 
 			// now convert them to our format
@@ -564,7 +530,7 @@ namespace mka {
 
 
 	void font::get_codepoint_bitmap_subpixel(float scale_x, float scale_y, float shift_x, float shift_y, int codepoint) {
-		mka::letter gbm = this->letters[codepoint];
+		mka::letter& gbm = this->letters[codepoint];
 		gbm.ch = (char)codepoint;
 
 		if (scale_x == 0) scale_x = scale_y;
@@ -578,37 +544,31 @@ namespace mka {
 
 		gbm.generate_edges();
 
-		std::cout << "edges generated: " << gbm.edges.size() << std::endl;
-
 		gbm.rasterize_edges();
 
 		for (mka::bezier_curve& e : this->letters[codepoint].edges) {
 			std::cout << "type: ";
 			switch (e.points.size()) {
 				case 1:
-					std::cout << "move with " << 1 << " points";
+					std::cout << "move with 1 points";
 					break;
 				case 2:
-					std::cout << "line with " << 2 << " points at (" << e.points[0].x << ", " << e.points[0].y << ") and (" << e.points[1].x << ", " << e.points[1].y << ")";
+					std::cout << "line with 2 points at (" << e.points[0].x << ", " << e.points[0].y << ") and (" << e.points[1].x << ", " << e.points[1].y << ")";
 					break;
 				case 3:
-					std::cout << "linear with " << 3 << " points";
+					std::cout << "linear with 3 points";
 					break;
 				default:
 					std::cout << "cubic with " << e.points.size() << " points";
 					break;
 			}
-			std::cout << '\n' << std::endl;
+			std::cout << std::endl;
 		}
 	}
 
 	void font::generate_letter(char codepoint, float scale) {
 		if (scale == letters[codepoint].scale.x && scale == letters[codepoint].scale.y)
 			return;
-		int width;
-		int height;
-		int xoff;
-		int yoff;
 
 		float f_scale_y = this->scale_for_pixel_height((float) scale);
 		float f_scale_x = this->scale_for_pixel_width((float) scale);
