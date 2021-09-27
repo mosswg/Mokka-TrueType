@@ -274,26 +274,6 @@ namespace mka {
 		return cff.cff_get_index();
 	}
 
-	void font::get_glyph_bitmap_box_subpixel(int glyph, float scale_x, float scale_y, float shift_x, float shift_y, int *ix0,
-											 int *iy0, int *ix1, int *iy1) const {
-		std::cerr << "Function is depreciated. Moved to calculated bounding box" << std::endl;
-
-
-
-//		int x0, y0, x1, y1;
-//		if (!this->GetGlyphBox(glyph, &x0, &y0, &x1, &y1)) {	// space or unknown character
-//			if (ix0) *ix0 = 0;
-//			if (iy0) *iy0 = 0;
-//			if (ix1) *ix1 = 0;
-//			if (iy1) *iy1 = 0;
-//		} else {	// move to integral bboxes (treating pixels as little squares, what pixels get touched)?
-//			if (ix0) *ix0 = (int) (floorf(x0 * scale_x + shift_x));
-//			if (iy0) *iy0 = (int) (floorf(-y1 * scale_y + shift_y));
-//			if (ix1) *ix1 = (int) (ceilf(x1 * scale_x + shift_x));
-//			if (iy1) *iy1 = (int) (ceilf(-y0 * scale_y + shift_y));
-//		}
-	}
-
 	static int close_shape(bezier_curve *vertices, int num_vertices, int was_off, int start_off,
 								  int sx, int sy, int scx, int scy, int cx, int cy)
 	{
@@ -330,6 +310,8 @@ namespace mka {
 	}
 
 
+	// This is a function that has been taken almost verbatim from stbtt. This will be 
+	// changed later but this is the part I need to redesign at the moment.
 	int mka::font::GetGlyphShape(int glyph_index, mka::bezier_curve **pvertices)
 	{
 		short numberOfContours;
