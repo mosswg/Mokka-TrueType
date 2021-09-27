@@ -149,25 +149,43 @@ void mka::letter::generate_edges() {
 				--flagcount; // Decrement flag_count if we're repeating.
 			}
 
-			uninterpreted_data.emplace_back(flags); // Write the flag to the uninterpreted data place
+			uninterpreted_data.emplace_back(flags); // Emplacing because then we don't need to count then allocate and then count again.
 		}
 
 		// Note: x values are relative to previous values. This is why we increment x instead of just setting it. The same is true for y values.
 		current_points.emplace_back(0,0);
 		for (i = 0; i < n; ++i) {
 			flags = uninterpreted_data[i].flags; // Read the flag of the uninterpreted data at the index of i
-			if (flags & X_SHORT_VECTOR) {  // If the vector's x is 1 byte long...
-				short dx = *points++; // Set dx to the value at points and increment points pointer
-				current_points[0].x += (flags & POSITIVE_X_SHORT_VECTOR) ? dx : -dx; // If the x short vector and the positive x short vector flags are set then x should be positive otherwise negative
+			if (flags & X_SHORT_VECTOR) {	// If the vector's x is 1 byte long...
+				short data_x = *points++;	// Set data x to the value at points and increment points pointer
+				/*
+				 * If the x short vector and the positive x short vector flags are set
+				 * then x should be positive otherwise negative
+				 */
+				current_points[0].x += (flags & POSITIVE_X_SHORT_VECTOR) ? data_x : -data_x;
 			} else { // If the vector's x is 2 bytes long...
 				if (!(flags & POSITIVE_X_SHORT_VECTOR)) { // And the positive x short vector flag is set...
-					// The current x-coordinate is a signed 16-bit delta vector and
-					// The delta vector is the change in x, so
-					current_points[0].x = current_points[0].x + (short)((points[0] << 4) | points[1]); // x should be x plus the next two byte of points combined.
+					/*
+					 * The current x-coordinate is a signed 16-bit delta vector and
+					 * The delta vector is the change in x, so
+					 * x should be x plus the next two byte of points combined.
+					 */
+					current_points[0].x = current_points[0].x + (short)((points[0] << 8) | points[1]);
+
 					points += 2; // Increment points by two since we got two byte from it.
-					// 	We shouldn't get this by incrementing the pointer because assignments are left to right, and we would need to put the first byte last. This would be very confusing.
+
+					/* Note:
+					 * We shouldn't get this by incrementing the pointer because assignments are left to right,
+					 * and we would need to put the first byte last. This would be very confusing.
+					*/
+
 				}
 			}
+			/*
+			 * If the positive x short vector is not set then the current x is the same as the previous x, so we simply don't set it.
+			 */
+
+
 			uninterpreted_data[i].x = current_points[0].x;
 		}
 
@@ -175,26 +193,34 @@ void mka::letter::generate_edges() {
 		current_points[0].y = 0;
 		for (i = 0; i < n; ++i) {
 			flags = uninterpreted_data[i].flags; // Read the flag of the uninterpreted data at the index of i
-			if (flags & Y_SHORT_VECTOR) { // If the vector's y is 1 byte long...
-				short dy = *points++; // Set dx to the value at points and increment points pointer
-				current_points[0].y += (flags & POSITIVE_Y_SHORT_VECTOR) ? dy : -dy; // If the y short vector and the positive y short vector flags are set then y should be positive otherwise negative
-			} else { // If the vector's y is 2 bytes long...
-				if (!(flags & POSITIVE_Y_SHORT_VECTOR)) { // And the positive y short vector flag is set...
-					// The current y-coordinate is a signed 16-bit delta vector and
-					// The delta vector is the change in y, so
-					current_points[0].y = current_points[0].y + (short)((points[0]<<4) | points[1]); // y should be y plus the next two bytes combined
-					points += 2; // Increment by two for the same reason as before
+			if (flags & Y_SHORT_VECTOR) {	// If the vector's y is 1 byte long...
+				short data_y = *points++;	// Set data y to the value at points and increment points pointer
+				/*
+				 * If the y short vector and the positive y short vector flags are set
+				 * then y should be positive otherwise negative
+				 */
+				current_points[0].y += (flags & POSITIVE_Y_SHORT_VECTOR) ? data_y : -data_y;
+			}
+			else { 												// If the vector's y is 2 bytes long...
+				if (!(flags & POSITIVE_Y_SHORT_VECTOR)) { 		// And the positive y short vector flag is set...
+					/*
+					 * The current y-coordinate is a signed 16-bit delta vector and
+					 * The delta vector is the change in x, so
+					 * it will be the current y position plus the next two byte of points combined.
+					 */
+					current_points[0].y = current_points[0].y + (short)((points[0]<<8) | points[1]);
+
+					points += 2;
 				}
 			}
 			uninterpreted_data[i].y = current_points[0].y;
-//			std::cout << "y: " << current_points[0].y << std::endl;
 		}
 
 		current_points.clear();
 
 		short next_move = 0;
 		int j = 0;
-		// now convert them to our format
+		// Convert the previously gotten data to a format we can use.
 		for (i = 0; i < uninterpreted_data.size(); i++) {
 			flags = uninterpreted_data[i].flags;
 			current_points.push_back(uninterpreted_data[i] * this->scale); // Read the point that we previously retrieved.
