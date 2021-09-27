@@ -108,38 +108,50 @@ void mka::letter::generate_edges() {
 	short numberOfContours;
 	unsigned char *endPtsOfContours;
 	int num_vertices;
-	unsigned int glyph_offset = parent_font->get_glyph_offset(this->ch);
+	unsigned int glyph_offset = parent_font->get_glyph_offset(parent_font->find_glyph_index(this->ch));
 
 	if (glyph_offset < 0) return;
 
 	numberOfContours = get_short(parent_font->data + glyph_offset);
 
-	std::cout << "min x: " << get_short(parent_font->data + glyph_offset + 2);
-	std::cout << "min y: " << get_short(parent_font->data + glyph_offset + 4);
-	std::cout << "max x: " << get_short(parent_font->data + glyph_offset + 6);
-	std::cout << "max y: " << get_short(parent_font->data + glyph_offset + 8);
+	std::cout << "min x: " << get_short(parent_font->data + glyph_offset + 2) << std::endl;
+	std::cout << "min y: " << get_short(parent_font->data + glyph_offset + 4) << std::endl;
+	std::cout << "max x: " << get_short(parent_font->data + glyph_offset + 6) << std::endl;
+	std::cout << "max y: " << get_short(parent_font->data + glyph_offset + 8) << std::endl;
+
+	std::cout << "num_cont: " << numberOfContours << std::endl;
+	for (int i = 1; i <= numberOfContours; i++) {
+		std::cout << "end point: " << get_ushort(parent_font->data + glyph_offset + 8 + (i*2)) << std::endl;
+	}
 
 	std::vector<mka::point> uninterpreted_data{};
 
 	if (numberOfContours > 0) {
 		unsigned char flags = 0, flagcount;
-		int instructions_length;
+		endPtsOfContours = (parent_font->data + glyph_offset + 10);
+		unsigned short instructions_length = get_ushort(parent_font->data + glyph_offset + 10 + numberOfContours * 2);
 		int i;
 		int n;
+		/*
+		 * The 10 is for the number of contours, min x, min y, max x, and max y values. Each of them being 2 byte and there being 5 of them.
+		 * The number of contours * 2 is then added for the number of elements in the end points of contours array. Each element being 2 bytes.
+		 * The instructions length size and value are then added because we want to ignore them at the moment.
+		 */
+		unsigned int offset_after_instructions = 10 + numberOfContours * 2 + sizeof(instructions_length) + instructions_length;
 
 		std::vector<mka::point> current_points;
-		unsigned char *points;
-		endPtsOfContours = (parent_font->data + glyph_offset + 10);
-		instructions_length = get_ushort(parent_font->data + glyph_offset + 10 + numberOfContours * 2);
-		points = parent_font->data + glyph_offset + 10 + numberOfContours * 2 + 2 + instructions_length;
+		unsigned char* points = parent_font->data + glyph_offset + offset_after_instructions;
 
+		// Get the last element of the end points of contours array.
 		n = 1 + get_ushort(endPtsOfContours + numberOfContours * 2 - 2);
+
+		std::cout << "n: " << n << "\tshort: " << get_ushort(endPtsOfContours + numberOfContours * 2 - 2) << std::endl;
 
 		//m = n + 2 * numberOfContours;  // a loose bound on how many vertices we might need
 
 		flagcount = 0;
 
-		// in first pass, we load uninterpreted font_data into the vector
+		// in first pass, we load uninterpreted font data into the vector
 		for (i = 0; i < n; ++i) {
 			if (flagcount == 0) { // If we're not repeating the current flags...
 				flags = *points++; // Get the value from points and increment the pointer
