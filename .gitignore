@@ -1,0 +1,10 @@
+# original stb files
+stb*
+*notes.cpp
+
+# Tests
+*Test.cpp
+
+
+# Build Files
+cmake-build-debug
