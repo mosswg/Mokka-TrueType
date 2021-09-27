@@ -54,6 +54,10 @@ void mka::letter::calculate_bounding_box() {
 }
 
 void mka::letter::generate_edges() {
+	if (!this->edges.empty()) {
+		this->edges.clear();
+	}
+
 	// From https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html
 
 	/*
@@ -258,11 +262,13 @@ void mka::letter::generate_edges() {
 				}
 			}
 		}
+
+		uninterpreted_data.clear();
 	}
 	else if (numberOfContours < 0) { /// FIXME: Compound Glyphs read as having no edges.
 		// Compound shapes.
 		int more = 1;
-		unsigned char *comp = parent_font->data + g + 10;
+		unsigned char *comp = parent_font->data + glyph_offset + 10;
 		num_vertices = 0;
 		while (more) {
 			unsigned short flags, gidx;
