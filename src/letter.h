@@ -32,9 +32,7 @@ namespace mka {
 			this->ch = '\0';
 		}
 
-		letter(font* parent, char ch) : parent_font(parent), ch(ch) {
-			letter::generate_edges();
-		}
+		letter(font* parent, char ch) : parent_font(parent), ch(ch) {}
 
 
 		//letter(font& parent, std::vector<edge> edges) : parent_font(parent), edges(std::move(edges)) {}
