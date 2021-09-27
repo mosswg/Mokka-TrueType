@@ -107,36 +107,36 @@ void mka::letter::generate_edges() {
 
 	short numberOfContours;
 	unsigned char *endPtsOfContours;
-	int num_vertices = 0;
-	int g = parent_font->get_glyph_offset(this->ch);
+	int num_vertices;
+	unsigned int glyph_offset = parent_font->get_glyph_offset(this->ch);
 
-	if (g < 0) return;
+	if (glyph_offset < 0) return;
 
-	numberOfContours = get_short(parent_font->data + g);
+	numberOfContours = get_short(parent_font->data + glyph_offset);
 
-	std::vector<mka::point> uninterpreted_data;
+	std::cout << "min x: " << get_short(parent_font->data + glyph_offset + 2);
+	std::cout << "min y: " << get_short(parent_font->data + glyph_offset + 4);
+	std::cout << "max x: " << get_short(parent_font->data + glyph_offset + 6);
+	std::cout << "max y: " << get_short(parent_font->data + glyph_offset + 8);
+
+	std::vector<mka::point> uninterpreted_data{};
 
 	if (numberOfContours > 0) {
 		unsigned char flags = 0, flagcount;
-		int ins;
+		int instructions_length;
 		int i;
-		int m;
 		int n;
-		int next_should_move;
-		bool last_point_was_off_curve = false;
-		bool start_point_is_off_curve = false;
 
 		std::vector<mka::point> current_points;
 		unsigned char *points;
-		endPtsOfContours = (parent_font->data + g + 10);
-		ins = get_ushort(parent_font->data + g + 10 + numberOfContours * 2);
-		points = parent_font->data + g + 10 + numberOfContours * 2 + 2 + ins;
+		endPtsOfContours = (parent_font->data + glyph_offset + 10);
+		instructions_length = get_ushort(parent_font->data + glyph_offset + 10 + numberOfContours * 2);
+		points = parent_font->data + glyph_offset + 10 + numberOfContours * 2 + 2 + instructions_length;
 
 		n = 1 + get_ushort(endPtsOfContours + numberOfContours * 2 - 2);
 
 		//m = n + 2 * numberOfContours;  // a loose bound on how many vertices we might need
 
-		next_should_move = 0;
 		flagcount = 0;
 
 		// in first pass, we load uninterpreted font_data into the vector
