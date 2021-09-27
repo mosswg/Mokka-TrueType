@@ -5,6 +5,8 @@ stb*
 # Tests
 *Test.cpp
 
+# Project Files
+.idea
 
 # Build Files
 cmake-build-debug
