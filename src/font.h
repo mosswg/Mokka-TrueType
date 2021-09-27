@@ -4,6 +4,7 @@
 #pragma once
 #include <string>
 #include <iostream>
+#include <unordered_map>
 #include "buf.h"
 #include "cff.h"
 #include "letter.h"
@@ -40,20 +41,21 @@ namespace mka{
 
 		unsigned int get_glyph_offset(int glyph_index) const;
 
-		void get_glyph_bitmap_box_subpixel(int glyph, float scale_x, float scale_y, float shift_x, float shift_y, int *ix0,
-										   int *iy0,
-										   int *ix1, int *iy1) const;
-
 		mka::buf cid_get_glyph_subrs(int glyph_index);
 
 		float scale_for_pixel_height(float height) const;
 
 		float scale_for_pixel_width(float width) const;
 
+		int get_table(const std::string& tag) const
+		{
+			return this->tables.at(tag);
+		}
+
 		void print_ints() const {
-			std::cout << this->index_map << "i   " << this->loca << "l  " << this->head << "h  " << this->glyf << "g  "
-					  << this->hhea << "h1  " << this->hmtx << "h2  " << this->kern << "k  " << this->gpos << "g  "
-					  << this->svg << "s  " << std::endl;
+			std::cout << this->index_map << "i   " << this->tables.at("loca") << "l  " << this->tables.at("head") << "h  " << this->tables.at("glyf") << "g  "
+					  << this->tables.at("hhea") << "h1  " << this->tables.at("hmtx") << "h2  " << this->tables.at("kern") << "k  " << this->tables.at("gpos") << "g  "
+					  << this->tables.at("svg") << "s  " << std::endl;
 		}
 
 		void print_buf_sizes() const {
@@ -68,13 +70,13 @@ namespace mka{
 		std::vector<letter> letters;											// Bits of the Letters
 		unsigned char *data{};													// Data of the font
 		long font_size;															// offset of start of font
+		std::unordered_map<std::string, int> tables;							// table locations as offset from start of .ttf
 
 	private:
 		int font_start;															// The offset from data to where the font data starts
 
 		int numGlyphs;                                            				// number of glyphs, needed for range checking
 
-		unsigned int loca, head, glyf, hhea, hmtx, kern, gpos, svg, cmap;    	// table locations as offset from start of .ttf
 		unsigned int index_map;                                					// a cmap mapping for our chosen character encoding
 		int indexToLocFormat;                                    				// format needed to map from glyph index to glyph
 

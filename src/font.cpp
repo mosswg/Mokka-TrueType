@@ -25,17 +25,22 @@ namespace mka {
 		return 0;
 	}
 
-	bool font::generate_tables() {
-		this->cmap = find_table(this->data, this->font_start, "cmap");      // required
-		this->glyf = find_table(this->data, this->font_start, "glyf"); 		// required
-		this->head = find_table(this->data, this->font_start, "head"); 		// required
-		this->hhea = find_table(this->data, this->font_start, "hhea"); 		// required
-		this->hmtx = find_table(this->data, this->font_start, "hmtx"); 		// required
-		this->loca = find_table(this->data, this->font_start, "loca"); 		// required
-		this->kern = find_table(this->data, this->font_start, "kern"); 		// not required
-		this->gpos = find_table(this->data, this->font_start, "GPOS"); 		// not required
+	bool mka::font::generate_tables() {
+		std::string table_tag;
 
-		if (this->cmap && this->head && this->hhea && this->hmtx && this->glyf && this->loca) { // Check if required tables exist
+		int num_tables = ((this->data + this->font_start + 4)[0] << 8) + (this->data + this->font_start + 4)[1];
+		unsigned int tabledir = this->font_start + 12;
+		for (int i = 0; i < num_tables; ++i) {
+			unsigned int loc = tabledir + (16 * i);
+
+			table_tag = std::string() + (char)(data + loc + 0)[0] + (char)(data + loc + 0)[1] + (char)(data + loc + 0)[2] + (char)(data + loc + 0)[3];
+
+			tables.emplace(table_tag, ((data + loc + 8)[0] << 24) + ((data + loc + 8)[1] << 16) + ((data + loc + 8)[2] << 8) +
+					   (data + loc + 8)[3]);
+		}
+
+		// Check if required tables exist
+		if (this->tables.at("cmap") && this->tables.at("head") && this->tables.at("hhea") && this->tables.at("hmtx") && this->tables.at("glyf") && this->tables.at("loca")) {
 			return true;
 		} else {
 			std::cout << "ERR: File Missing Required Headers (only ttf fonts are currently supported)" << std::endl;
@@ -86,19 +91,19 @@ namespace mka {
 		else
 			this->numGlyphs = 0xffff;
 
-		this->svg = -1;
+		this->tables.emplace("svg", -1);
 
 		// find a cmap encoding table we understand *now* to avoid searching
 		// later. (todo: could make this installable)
 		// the same regardless of glyph.
-		numTables = get_ushort(this->data + this->cmap + 2);
+		numTables = get_ushort(this->data + this->get_table("cmap") + 2);
 		this->index_map = 0;
 		for (i = 0; i < numTables; ++i) {
-			unsigned int encoding_record = this->cmap + 4 + 8 * i;
+			unsigned int encoding_record = this->get_table("cmap") + 4 + 8 * i;
 			// find an encoding we understand:
 			unsigned short encoding_type = get_ushort(this->data + encoding_record);
 			if (encoding_type >= platform_id::UNICODE && encoding_type <= platform_id::MICROSOFT) {
-				this->index_map = this->cmap + get_ulong(this->data + encoding_record + 4);
+				this->index_map = this->get_table("cmap") + get_ulong(this->data + encoding_record + 4);
 				break;
 			}
 		}
@@ -106,7 +111,7 @@ namespace mka {
 		if (this->index_map == 0)
 			return;
 
-		this->indexToLocFormat = get_ushort((this->data) + (this->head) + 50);
+		this->indexToLocFormat = get_ushort((this->data) + (this->get_table("head")) + 50);
 
 		font_file.close();
 	}
@@ -231,11 +236,11 @@ namespace mka {
 		if (this->indexToLocFormat >= 2) return -1; // unknown index->glyph map format
 
 		if (this->indexToLocFormat == 0) {
-			g1 = this->glyf + get_ushort(this->data + this->loca + glyph_index * 2) * 2;
-			g2 = this->glyf + get_ushort(this->data + this->loca + glyph_index * 2 + 2) * 2;
+			g1 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2) * 2;
+			g2 = this->get_table("glyf") + get_ushort(this->data + this->get_table("loca") + glyph_index * 2 + 2) * 2;
 			} else {
-			g1 = this->glyf + get_ulong(this->data + this->loca + glyph_index * 4);
-			g2 = this->glyf + get_ulong(this->data + this->loca + glyph_index * 4 + 4);
+			g1 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4);
+			g2 = this->get_table("glyf") + get_ulong(this->data + this->get_table("loca") + glyph_index * 4 + 4);
 		}
 
 		return (g1 == g2) ? -2 : g1; // if length is 0, return -1
@@ -654,12 +659,12 @@ namespace mka {
 	}
 
 	float font::scale_for_pixel_height(float height) const {
-		int fheight = get_short(this->data + this->hhea + 4) - get_short(this->data + this->hhea + 6);
+		int fheight = get_short(this->data + this->tables.at("hhea") + 4) - get_short(this->data + this->tables.at("hhea") + 6);
 		return (height / (float)fheight);
 	}
 
 	float font::scale_for_pixel_width(float width) const {
-		int fwidth = get_short(this->data + this->hhea + 10) - get_short(this->data + this->hhea + 12);
+		int fwidth = get_short(this->data + this->tables.at("hhea") + 10) - get_short(this->data + this->tables.at("hhea") + 12);
 		return (width / (float)fwidth);
 	}
 
