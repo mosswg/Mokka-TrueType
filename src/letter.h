@@ -17,24 +17,26 @@ namespace mka {
 	class letter{
 	public:
 		char ch;
-		int min_x, min_y;
 		point scale;
 		std::vector<bezier_curve> edges;
 		bitmap pixels{};
 
-	private:
-		font* parent_font;
+	protected:
+		font* parent_font{};
+
 
 
 	public:
+
 		explicit letter(font* parent_font) : parent_font(parent_font) {
 			this->ch = '\0';
 		}
 
-		letter(font* parent, char ch) : parent_font(parent), ch(ch) {}
+		letter(font* parent, char ch) : ch(ch), parent_font(parent) {}
 
-
-		//letter(font& parent, std::vector<edge> edges) : parent_font(parent), edges(std::move(edges)) {}
+		point get_size() const {
+			return {this->pixels.size.x * scale.x, this->pixels.size.y * this->scale.y};
+		}
 
 		void generate_edges();
 
