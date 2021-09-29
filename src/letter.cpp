@@ -6,12 +6,13 @@
 #include "letter.h"
 #include "macros.h"
 
+
 void mka::letter::calculate_bounding_box() {
 	if (edges.empty())
 		return;
 
-	this->min_y = INT32_MAX;
-	this->min_x = INT32_MAX;
+	double min_y = MAXFLOAT;
+	double min_x = MAXFLOAT;
 	double max_y = 0;
 	double max_x = 0;
 	for (const bezier_curve& e : edges) {
@@ -20,7 +21,7 @@ void mka::letter::calculate_bounding_box() {
 			continue;
 		}
 
-//		std::cout << "y: " << e.points[0].y << ", " << e.points[1].y << "\tx: " << e.points[0].x << ", " << e.points[1].x << std::endl;
+		std::cout << "y: " << e.points[0].y << ", " << e.points[1].y << "\tx: " << e.points[0].x << ", " << e.points[1].x << std::endl;
 
 		// max y
 		if (e.points[1].y > max_y)
@@ -31,13 +32,13 @@ void mka::letter::calculate_bounding_box() {
 		}
 
 		// min y
-		if (e.points[0].y != 0 && floor(e.points[0].y) < min_y) {
-			min_y = floor(e.points[0].y);
+		if (e.points[0].y != 0 && e.points[0].y < min_y) {
+			min_y = e.points[0].y;
 		}
 
 		// min x
-		if (e.points[0].x != 0 && floor(e.points[0].x) < min_x) {
-			min_x = floor(e.points[0].x);
+		if (e.points[0].x != 0 && e.points[0].x < min_x) {
+			min_x = e.points[0].x;
 		}
 
 		// max x
@@ -45,18 +46,15 @@ void mka::letter::calculate_bounding_box() {
 			max_x = e.points[1].x;
 	}
 
-	this->pixels.h = (int)(ceil(max_y) - this->min_y);
-	this->pixels.w = (int)(ceil(max_x) - this->min_x);
+	this->pixels.size.x = (int)(ceil(max_y) - floor(min_y));
+	this->pixels.size.y = (int)(ceil(max_x) - floor(min_x));
 
 
-	std::cout << "h: " << this->pixels.h << "\tmin: " << min_y << "\tmax: " << max_y << std::endl;
-	std::cout << "w: " << this->pixels.w << "\tmin: " << min_x << "\tmax: " << max_x << std::endl;
+	std::cout << "size: " << this->get_size().x << ", " << this->get_size().y << "\nmin: " << min_y << "\tmax: " << max_y << std::endl;
+	std::cout << "min: " << min_x << "\tmax: " << max_x << std::endl;
 }
 
 void mka::letter::generate_edges() {
-	if (!this->edges.empty()) {
-		this->edges.clear();
-	}
 
 	// From https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html
 
