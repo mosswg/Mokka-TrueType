@@ -7,24 +7,9 @@
 #include "font.h"
 #include "letter.h"
 #include "macros.h"
-#include "buf.h"
 
 namespace mka {
 /// OPTIMIZE: binary search
-// Taken Verbatim From stb_truetype
-	unsigned int find_table(unsigned char *data, unsigned int fontstart, const char *tag) {
-		int num_tables = ((data + fontstart + 4)[0] << 8) + (data + fontstart + 4)[1];
-		unsigned int tabledir = fontstart + 12;
-		for (int i = 0; i < num_tables; ++i) {
-			unsigned int loc = tabledir + (16 * i);
-			if ((data + loc + 0)[0] == (tag[0]) && (data + loc + 0)[1] == (tag[1]) && (data + loc + 0)[2] == (tag[2]) &&
-				(data + loc + 0)[3] == (tag[3]))
-				return ((data + loc + 8)[0] << 24) + ((data + loc + 8)[1] << 16) + ((data + loc + 8)[2] << 8) +
-					   (data + loc + 8)[3];
-		}
-		return 0;
-	}
-
 	bool mka::font::generate_tables() {
 		std::string table_tag;
 
@@ -76,16 +61,12 @@ namespace mka {
 		}
 
 		// Initialization
-
-		unsigned int t;
 		int i, numTables;
-
-
-		this->cff = buf(nullptr, 0);
 
 		this->generate_tables();
 
-		t = find_table(reinterpret_cast<unsigned char *>(this->data), font_start, "maxp");
+		unsigned int t = get_table("maxp");
+
 		if (t)
 			this->numGlyphs = (this->data + t + 4)[0] * 256 + (this->data + t + 4)[1];
 		else
@@ -125,8 +106,6 @@ namespace mka {
 	int font::find_glyph_index(int unicode_codepoint) const {
 		unsigned char *font_data = this->data;
 
-		mka_assert(this->index_map >= 0, -52);
-
 		unsigned short format = get_ushort(font_data + this->index_map + 0);
 		if (format == 0) { // apple byte encoding
 			int bytes = get_ushort(font_data + index_map + 2);
@@ -136,7 +115,7 @@ namespace mka {
 		} else if (format == 6) {
 			int first = get_ushort(font_data + index_map + 6);
 			unsigned int count = get_ushort(font_data + index_map + 8);
-			if ((unsigned int) unicode_codepoint >= first && (unsigned int) unicode_codepoint < first + count)
+			if (unicode_codepoint >= first && (unsigned int) unicode_codepoint < first + count)
 				return get_ushort(font_data + index_map + 10 + (unicode_codepoint - first) * 2);
 			return 0;
 		} else if (format == 2) {
@@ -288,7 +267,6 @@ namespace mka {
 	{
 		short numberOfContours;
 		unsigned char *endPtsOfContours;
-		unsigned char *data = this->data;
 		bezier_curve *vertices=0;
 		int num_vertices=0;
 		int g = this->get_glyph_offset(glyph_index);
@@ -312,8 +290,6 @@ namespace mka {
 
 			m = n + 2*numberOfContours;  // a loose bound on how many vertices we might need
 			vertices = new bezier_curve[m];
-			if (vertices == nullptr)
-				return 0;
 
 
 			next_move = 0;
@@ -351,6 +327,7 @@ namespace mka {
 					}
 				}
 				vertices[off+i][0].x = (short) x;
+
 			}
 
 			// now load y coordinates
@@ -371,7 +348,7 @@ namespace mka {
 
 			// now convert them to our format
 			num_vertices=0;
-			sx = sy = cx = cy = scx = scy = 0;
+			sx = sy = cx = cy = scx = scy = 0; /// WHY????
 			for (i=0; i < n; ++i) {
 				flags = vertices[off+i][0].flags;
 				x     = (short) vertices[off+i][0].x;
@@ -386,7 +363,7 @@ namespace mka {
 					start_off = !(flags & 1);
 					if (start_off) {
 						// if we start off with an off-curve point, then when we need to find a point on the curve
-						// where we can start, and we need to save some state for when we wraparound.
+						// where we can start, and we need to save some state for when we wrap around.
 						scx = x;
 						scy = y;
 						if (!(vertices[off+i+1][0].flags & 1)) {
@@ -504,14 +481,14 @@ namespace mka {
 						v->points[1].y = (short)(n * (mtx[1]*x + mtx[3]*y + mtx[5]));
 					}
 					// Append vertices.
-					tmp = (bezier_curve*)malloc((num_vertices+comp_num_verts)*sizeof(point));
+					tmp = new bezier_curve[(num_vertices+comp_num_verts)];
 					if (!tmp) {
 						if (vertices) free(vertices);
 						if (comp_verts) free(comp_verts);
 						return 0;
 					}
-					if (num_vertices > 0 && vertices) memcpy(tmp, vertices, num_vertices*sizeof(point));
-					memcpy(tmp+num_vertices, comp_verts, comp_num_verts*sizeof(point));
+//					if (num_vertices > 0 && vertices) memcpy(tmp, vertices, num_vertices*sizeof(point));
+//					memcpy(tmp+num_vertices, comp_verts, comp_num_verts*sizeof(point));
 					if (vertices) free(vertices);
 					vertices = tmp;
 					free(comp_verts);
@@ -529,7 +506,7 @@ namespace mka {
 	}
 
 
-	void font::get_codepoint_bitmap_subpixel(float scale_x, float scale_y, float shift_x, float shift_y, int codepoint) {
+	void font::generate_letter_bitmap(float scale_x, float scale_y, int codepoint) {
 		mka::letter& gbm = this->letters[codepoint];
 		gbm.ch = (char)codepoint;
 
@@ -544,26 +521,25 @@ namespace mka {
 
 		gbm.generate_edges();
 
-		gbm.rasterize_edges();
-
-		for (mka::bezier_curve& e : this->letters[codepoint].edges) {
-			std::cout << "type: ";
+		for (auto const& e : gbm.edges) {
+			std::cout << "curve with type: ";
 			switch (e.points.size()) {
 				case 1:
-					std::cout << "move with 1 points";
+					std::cout << "move\t";
 					break;
 				case 2:
-					std::cout << "line with 2 points at (" << e.points[0].x << ", " << e.points[0].y << ") and (" << e.points[1].x << ", " << e.points[1].y << ")";
+					std::cout << "line\t";
 					break;
 				case 3:
-					std::cout << "linear with 3 points";
-					break;
 				default:
-					std::cout << "cubic with " << e.points.size() << " points";
+					std::cout << "curve\t";
 					break;
 			}
+			e.print_points();
 			std::cout << std::endl;
 		}
+
+		gbm.rasterize_edges();
 	}
 
 	void font::generate_letter(char codepoint, float scale) {
@@ -573,28 +549,22 @@ namespace mka {
 		float f_scale_y = this->scale_for_pixel_height((float) scale);
 		float f_scale_x = this->scale_for_pixel_width((float) scale);
 
-		this->get_codepoint_bitmap_subpixel(f_scale_x, f_scale_y, 0.0f, 0.0f, codepoint);
+		this->generate_letter_bitmap(f_scale_x, f_scale_y, codepoint);
 	}
 
 	void font::generate_letter(char codepoint, float scale_x, float scale_y) {
 		if (scale_x == letters[codepoint].scale.x && scale_y == letters[codepoint].scale.y)
 			return;
 
-		int width;
-		int height;
-		int xoff;
-		int yoff;
-
-
 		float f_scale_x = this->scale_for_pixel_width((float) scale_x);
 		float f_scale_y = this->scale_for_pixel_height((float) scale_y);
 
-		this->get_codepoint_bitmap_subpixel(f_scale_x, f_scale_y, 0.0f, 0.0f, codepoint);
+		this->generate_letter_bitmap(f_scale_x, f_scale_y, codepoint);
 	}
 
 
 	mka::letter& font::get_letter(char letter) {
-		if (letters[letter].pixels.w == 0 && letters[letter].pixels.h == 0) {
+		if (letters[letter].get_size().is_zero()) {
 			this->generate_letter(letter, 20);
 		}
 
@@ -602,7 +572,7 @@ namespace mka {
 	}
 
 	mka::letter& font::get_letter(char letter, float scale) {
-		if (letters[letter].pixels.w == 0 && letters[letter].pixels.h == 0) {
+		if (letters[letter].get_size().is_zero()) {
 			this->generate_letter(letter, scale);
 		} else {
 			if (scale != letters[letter].scale.x) {

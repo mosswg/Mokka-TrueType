@@ -24,7 +24,7 @@ namespace mka{
 
 		int find_glyph_index(int unicode_codepoint) const;
 
-		void get_codepoint_bitmap_subpixel(float, float, float, float, int);
+		void generate_letter_bitmap(float, float, int);
 
 		void generate_letter(char, float);
 
@@ -39,8 +39,6 @@ namespace mka{
 		const letter& get_letter(char) const;
 
 		unsigned int get_glyph_offset(int glyph_index) const;
-
-		mka::buf cid_get_glyph_subrs(int glyph_index);
 
 		float scale_for_pixel_height(float height) const;
 
@@ -57,11 +55,6 @@ namespace mka{
 					  << this->tables.at("svg") << "s  " << std::endl;
 		}
 
-		void print_buf_sizes() const {
-			std::cout << this->cff.size << "cff   " << this->charstrings.size << "cstr  " << this->gsubrs.size
-					  << "gsubrs  " << this->subrs.size << "sbr  " << this->fontdicts.size << "fd  "
-					  << this->fdselect.size << "fdsel  " << std::endl;
-		}
 
 	public:
 		static const int num_letters = 256;                        				// number of letters in the letters letter
@@ -78,13 +71,6 @@ namespace mka{
 
 		unsigned int index_map;                                					// a cmap mapping for our chosen character encoding
 		int indexToLocFormat;                                    				// format needed to map from glyph index to glyph
-
-		buf cff;																// cff font data
-		buf charstrings;														// the charstring index
-		buf gsubrs;																// global charstring subroutines index
-		buf subrs;																// private charstring subroutines index
-		buf fontdicts;															// array of font dicts
-		buf fdselect;															// map from glyph to fontdict
 	};
 
 }
