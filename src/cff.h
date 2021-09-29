@@ -1,12 +1,12 @@
-
 #pragma once
 
+#include <iostream>
 #include <cmath>
 #include <cstring>
 #include <vector>
-#include "buf.h"
+#include <string>
 
-enum platform_id { // platformID
+enum platform_id {
     UNICODE   =0,
     MAC       =1,
     ISO       =2,

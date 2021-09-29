@@ -9,8 +9,6 @@ add_executable(mka_truetype
         src/macros.h
         src/cff.h
         src/cff.cpp
-        src/buf.h
-        src/buf.cpp
         src/letter.h
         src/letter.cpp
         src/font.h

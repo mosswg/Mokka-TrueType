@@ -5,7 +5,6 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
-#include "buf.h"
 #include "cff.h"
 #include "letter.h"
 
