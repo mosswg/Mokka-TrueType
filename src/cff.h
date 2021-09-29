@@ -139,47 +139,30 @@ namespace mka {
 			this->points = std::vector<point>(1);
 		}
 
-		static mka::point calculate_value_from_points(std::vector<mka::point> const& points, double pos, int start_idx, int end_idx);
+		static mka::point& calculate_value_from_points(std::vector<mka::point> const& points, double pos, int start_idx, int end_idx);
 
 		mka::point calculate_at_position(double x) const;
 
-		void rasterize(bitmap& out, point& origin) const;
+		void rasterize(bitmap& out, point& origin, point const& scale) const;
 
 		point& operator[](int idx) {
 			return points[idx];
 		}
-	};
 
 
-	class move : public bezier_curve {
-	public:
-		explicit move(point p) : bezier_curve({p}) {}
-	};
+		void print_points() const
+		{
+			for (auto const& item : this->points) {
+				std::cout << item.to_string() << '\t';
+			}
+		}
 
-	template <class T> class vec2 {
-	public:
-		T x,y;
-
-	public:
-		vec2() {
-			this->x = 0;
-			this->y = 0;
-		};
-
-		vec2(T x, T y) {
-			this->x = x;
-			this->y = y;
+		void print_points(point add) const
+		{
+			for (auto const& item : this->points) {
+				std::cout << (item+add).to_string() << '\t';
+			}
 		}
 	};
 
-
 }
-
-void sort_edges_ins_sort(std::vector<mka::bezier_curve>&, int);
-
-void setvertex(mka::bezier_curve& v, char type, int x, int y, int cx, int cy);
-
-void tesselate_cubic(std::vector<mka::point>& points, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float objspace_flatness_squared, int n);
-
-int tesselate_curve(std::vector<mka::point>& points, float x0, float y0, float x1, float y1, float x2, float y2, float objspace_flatness_squared, int n);
-
