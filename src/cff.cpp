@@ -24,22 +24,26 @@ void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& 
 	double min_dist_to_pixel;
 	double dist_to_nearest_pixel;
 
-	for (double i = 0; i <= 1; i+=increment) {
+	for (double i = 0; i <= 1; i += increment) {
 		current = this->calculate_at_position(i);
+		current.x *= scale.x;
+		current.y *= scale.y;
 
-		if (round(current.x+origin.x) > out.w || round(current.x + origin.x) < 0) {
+		//std::cout << "cx: " << current.x << "\tcy: " << current.y << "\t\t";
+
+		if (round(current.x+origin.x) > out.size.x || round(current.x + origin.x) < 0) {
 			continue; // So we don't wrap around edges.
 		}
-		if (round(current.y+origin.y) > out.h || round(current.y+origin.y) < 0) {
+		if (round(current.y+origin.y) > out.size.y || round(current.y+origin.y) < 0) {
 			continue; // So we don't write to out of bounds memory.
 		}
 
-		if (round(current.x) != current_pixel.x || round(current.y) != current_pixel.y || i > (increment-1)) {
+		if (round(current.x) != current_pixel.x || round(current.y) != current_pixel.y || i == 1) {
 			value_from_dist_to_pixel = (1.0/(min_dist_to_pixel+1)) * 255;
 
-			//std::cout << "Writing " << value_from_dist_to_pixel << " to (" << current_pixel.x+origin.x << ", " << current_pixel.y+origin.y << ")\n";
+			std::cout << "Writing " << value_from_dist_to_pixel << " to " << current_pixel.to_string() << "\n";
 
-			unsigned char& curr_char = out[(int)(((current_pixel.y+origin.y) * out.w) + (current_pixel.x+origin.x))];
+			unsigned char& curr_char = out[(int)(((current_pixel.y+origin.y) * (out.size.x * scale.x)) + (current_pixel.x+origin.x))];
 			curr_char = value_from_dist_to_pixel > curr_char ? (int)round(value_from_dist_to_pixel) : curr_char;
 			min_dist_to_pixel = 10;
 		}
@@ -51,17 +55,21 @@ void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& 
 
 		min_dist_to_pixel = dist_to_nearest_pixel < min_dist_to_pixel ? dist_to_nearest_pixel : min_dist_to_pixel;
 	}
-	origin = current_pixel;
+
+
+	origin = points.back() * scale;
 }
 
-mka::point mka::bezier_curve::calculate_value_from_points(std::vector<mka::point> const& points, double t, int start_idx, int end_idx) {
+mka::point& mka::bezier_curve::calculate_value_from_points(std::vector<mka::point> const& points, double t, int start_idx, int end_idx)
+{
 	if (start_idx == end_idx) {
-		return points[start_idx];
+		return const_cast<point &>(points[start_idx]);
 	}
 
-	return (calculate_value_from_points(points, t, start_idx, end_idx-1) * (1-t)) + (calculate_value_from_points(points, t, start_idx+1, end_idx) * t);
+	return (calculate_value_from_points(points, t, start_idx, end_idx-1) *= (1-t)) += (calculate_value_from_points(points, t, start_idx+1, end_idx) *= t);
 }
 
-mka::point mka::bezier_curve::calculate_at_position(double t) const {
+mka::point mka::bezier_curve::calculate_at_position(double t) const
+{
 	return calculate_value_from_points(this->points, t, 0, points.size()-1);
 }
