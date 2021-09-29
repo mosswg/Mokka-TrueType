@@ -13,8 +13,8 @@ add_executable(mka_truetype
         src/letter.cpp
         src/font.h
         src/font.cpp
-        # src/TrueTypeTest.cpp
-        src/RasterizerTest.cpp
+        # tests/TrueTypeTest.cpp
+        tests/RasterizerTest.cpp
         )
 
 
