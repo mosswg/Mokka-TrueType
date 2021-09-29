@@ -110,7 +110,7 @@ void mka::letter::generate_edges() {
 	short numberOfContours;
 	unsigned char *endPtsOfContours;
 	int num_vertices;
-	unsigned int glyph_offset = parent_font->get_glyph_offset(parent_font->find_glyph_index(this->ch));
+	int glyph_offset = parent_font->get_glyph_offset(parent_font->find_glyph_index(this->ch));
 
 	if (glyph_offset < 0) return;
 
@@ -203,7 +203,7 @@ void mka::letter::generate_edges() {
 			uninterpreted_data[i].x = current_points[0].x;
 		}
 
-		// now load y coordinates
+		// Now we get the interpreted y values
 		current_points[0].y = 0;
 		for (i = 0; i < n; ++i) {
 			flags = uninterpreted_data[i].flags; // Read the flag of the uninterpreted data at the index of i
@@ -235,10 +235,9 @@ void mka::letter::generate_edges() {
 		short next_move = 0;
 		int j = 0;
 		// Convert the previously gotten data to a format we can use.
-		for (i = 0; i < uninterpreted_data.size(); i++) {
+		for (i = 0; i < (int)uninterpreted_data.size(); i++) {
 			flags = uninterpreted_data[i].flags;
-			current_points.push_back(uninterpreted_data[i] * this->scale); // Read the point that we previously retrieved.
-
+			current_points.push_back(uninterpreted_data[i]); // Read the point that we previously retrieved.
 
 			if (next_move == i) {
 				if (i != 0) {
@@ -246,19 +245,21 @@ void mka::letter::generate_edges() {
 					current_points.clear();
 				}
 
-
-				next_move = 1 + get_ushort(endPtsOfContours+j*2); // Get next_move using j as an offset and add 1 to it.
+				next_move = (short)(1 + get_ushort(endPtsOfContours+j*2)); // Get next_move using j as an offset and add 1 to it.
 				++j; // inc j
 			}
 
 			if (flags & ON_CURVE) { // If the current point is on the curve (First point, middle, or end point)...
 				if (current_points.size() != 1) { // and it's not the first point of the curve (middle, or end)...
-					if (uninterpreted_data[i+1].flags & ON_CURVE) { // and the next point is not on the curve (end point)...
+					//if (uninterpreted_data[i+1].flags & ON_CURVE) { // and the next point is not on the curve (end point)...
 						edges.emplace_back(current_points); // Create the edge with the gotten points and...
 						current_points.clear(); // Clear the current points vector so that next time through the loop we have a fresh set.
-					}
 				}
 			}
+		}
+
+		if (!current_points.empty()) {
+			edges.emplace_back(current_points);
 		}
 
 		uninterpreted_data.clear();
@@ -269,16 +270,14 @@ void mka::letter::generate_edges() {
 		unsigned char *comp = parent_font->data + glyph_offset + 10;
 		num_vertices = 0;
 		while (more) {
-			unsigned short flags, gidx;
+			unsigned short flags;
 			int comp_num_verts = 0, i;
 			std::vector<bezier_curve> comp_edges, tmp;
 			comp_edges = edges;
 			float mtx[6] = {1, 0, 0, 1, 0, 0}, m, n;
 
 			flags = get_short(comp);
-			comp += 2;
-			gidx = get_short(comp);
-			comp += 2;
+			comp += 4;
 
 			if (flags & 2) { // XY values
 				if (flags & 1) { // shorts
@@ -293,7 +292,7 @@ void mka::letter::generate_edges() {
 					comp += 1;
 				}
 			} else {
-				// @TODO handle matching point
+				/// TODO: handle matching point
 				mka_assert_unreachable(-3);
 			}
 			if (flags & (1 << 3)) { // WE_HAVE_A_SCALE
@@ -354,81 +353,46 @@ void mka::letter::generate_edges() {
 
 void mka::letter::rasterize_edges()
 {
+
 	calculate_bounding_box();
 
-	this->pixels.data = new unsigned char[pixels.w * pixels.h];
-	for (int i = 0; i < pixels.w * pixels.h; i++)
-		this->pixels[i] = 0;
+	point l_size = this->get_size();
+
+	this->pixels = bitmap(ceil(l_size.x), ceil(l_size.y));
+
+	this->pixels.size /= scale;
 
 	point origin = {0, 0};
 
+	const char *bits[] = {" ", "ı", "▄", "■", "░", "▒", "▓", "█"};
+
 	for (mka::bezier_curve const& e : edges) {
-		e.rasterize(this->pixels, origin);
+		if (!e.points.empty()) {
+			e.print_points(origin);
+
+			e.rasterize(this->pixels, origin, scale);
+
+			std::cout << "curve with type: ";
+			switch (e.points.size()) {
+				case 1:
+					std::cout << "move\t";
+					break;
+				case 2:
+					std::cout << "line\t";
+					break;
+				case 3:
+				default:
+					std::cout << "curve\t";
+					break;
+			}
+			std::cout << std::endl;
+
+//			for (int j = this->get_size().x - 1; j >= 0; j--) {
+//				for (int i = 0; i < this->get_size().y; i++)
+//					std::cout << bits[this->pixels[j * (int)this->get_size().x + i] >> 5] << ' ';
+//				std::cout << '\n';
+//			}
+//			std::cout << '\n' << std::endl;
+		}
 	}
-
-	edges.clear();
 }
-
-//std::vector<mka::bezier_curve> mka::letter::get_edges_from_vertices(const std::vector<vertex>& vertices, float objspace_flatness, int **contour_lengths, int *num_contours)
-//{
-//	std::vector<bezier_curve> edges{};
-//	int num_points = 0;
-//	bool error = false;
-//
-//	float objspace_flatness_squared = objspace_flatness * objspace_flatness;
-//	int i,n=0,start=0;
-//
-//	// count how many "moves" there are to get the contour count
-//	for (i=0; i < vertices.size(); ++i)
-//		if (vertices[i].type == vmove)
-//			++n;
-//
-//	*num_contours = n;
-//	if (n == 0) return edges;
-//
-//	*contour_lengths = (int *) malloc(sizeof(**contour_lengths) * n);
-//
-//	if (*contour_lengths == nullptr) {
-//		*num_contours = 0;
-//		return edges;
-//	}
-//
-//
-//	// make two passes through the points so we don't need to realloc
-//	point current_point;
-//	num_points = 0;
-//	n= -1;
-//	for (i=0; i < vertices.size(); ++i) {
-//		switch (vertices[i].type) {
-//			case vmove:
-//				// start the next contour
-//				if (n >= 0)
-//					(*contour_lengths)[n] = num_points - start;
-//				++n;
-//				start = num_points;
-//
-//				current_point = vertices[i].p0;
-//				edges.push_back(mka::move(current_point));
-//				break;
-//			case vline:
-//				current_point = vertices[i].p0;
-//				edges.push_back(mka::edge::line(current_point, vertices[++i].p0));
-//				break;
-//			case vcurve:
-//				edges.emplace_back(mka::edge::linear_curve(current_point,
-//														   vertices[i].p1,
-//														   vertices[i].p0));
-//				current_point = vertices[i].p0;
-//				break;
-//			case vcubic:
-//				edges.emplace_back(mka::edge::cubic_curve(current_point,
-//														  vertices[i].p1,
-//														  vertices[i].p2,
-//														  vertices[i].p0));
-//				current_point = vertices[i].p0;
-//				break;
-//		}
-//	}
-//	(*contour_lengths)[n] = num_points - start;
-//	return edges;
-//}
