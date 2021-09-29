@@ -20,6 +20,7 @@ namespace mka {
 		unsigned char flags;
 
 	public:
+
 		point() {
 			x = 0, y = 0;
 			flags = 0;
@@ -37,29 +38,55 @@ namespace mka {
 			this->flags = flags;
 		}
 
-
-
 		point operator+(mka::point& add) const {
-			point out = point(this->x + add.x, this->y + add.y);
-			return out;
+			return {this->x + add.x, this->y + add.y};
 		}
 
-		point operator+(mka::point add) const {
-			point out = point(this->x + add.x, this->y + add.y);
-			return out;
+		point operator+(const mka::point& add) const {
+			return {this->x + add.x, this->y + add.y};
 		}
 
-		point operator/(double divisor) const {
+		point& operator+=(const mka::point& add) {
+			this->x += add.x;
+			this->y += add.y;
+			return *this;
+		}
+
+
+		point operator/(double const& divisor) const {
 			return {this->x/divisor, this->y/divisor};
 		}
 
-		point operator*(double multiplier) const {
+		point& operator/=(point const& divisor) {
+			this->x /= divisor.x;
+			this->y /= divisor.y;
+			return *this;
+		}
+
+		point operator*(double const& multiplier) const {
 			return {this->x*multiplier, this->y*multiplier};
 		}
 
-		point operator*(point multiplier) const {
+		point& operator*=(double const& multiplier) {
+			this->x *= multiplier;
+			this->y *= multiplier;
+			return *this;
+		}
+
+		point operator*(point const& multiplier) const {
 			return {this->x*multiplier.x, this->y*multiplier.y};
 		}
+
+		double sq() const {
+			return this->x * this->y;
+		}
+
+		std::string to_string() const
+		{
+			return std::string("(") + std::to_string(this->x) + ", " + std::to_string(this->y) + ")";
+		}
+
+		bool is_zero() const {return x == 0 && y == 0;}
 
 
 
@@ -67,23 +94,23 @@ namespace mka {
 
 	class bitmap {
 	public:
-		int w, h;
+		point size;
 		unsigned char* data;
 
 	public:
 		~bitmap() {
-			if (this->data)
+			if (this->data != nullptr) {
 				free(this->data);
+				this->data = nullptr;
+			}
 		}
 		bitmap() {
-			this->w = 0;
-			this->h = 0;
+			this->size = {0, 0};
 			this->data = nullptr;
 		}
 
 		bitmap(int width, int height) {
-			this->w = width;
-			this->h = height;
+			this->size = {(double)width, (double)height};
 			this->data = new unsigned char[width * height];
 			for (int i = 0; i < width * height; i++) {
 				this->data[i] = 0;
@@ -104,7 +131,6 @@ namespace mka {
 		static const int ACCURACY = 100;
 
 	public:
-
 		explicit bezier_curve(std::vector<point> const& points) {
 			this->points = points;
 		}
