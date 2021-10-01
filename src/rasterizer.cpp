@@ -3,13 +3,16 @@
 //
 
 
-#include "cff.h"
+#include "rasterizer.h"
 #include <vector>
-#include "macros.h"
 
 
 void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& scale) const
 {
+	std::cout << std::endl;
+	for (auto const& item : this->points) {
+		std::cout << ((item+origin)*scale).to_string() << '\t';
+	}
 	if (points.empty())
 		return;
 
