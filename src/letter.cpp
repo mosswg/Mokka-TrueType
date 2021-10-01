@@ -2,7 +2,7 @@
 // Copyright (c) 2021 Moss Gallagher.
 //
 #include <vector>
-#include "cff.h"
+#include "rasterizer.h"
 #include "letter.h"
 #include "macros.h"
 
@@ -16,34 +16,23 @@ void mka::letter::calculate_bounding_box() {
 	double max_y = 0;
 	double max_x = 0;
 	for (const bezier_curve& e : edges) {
-		/// FIXME: This is a Hack
-		if (e.points.size() < 2) {
-			continue;
+		for (auto const& point : e.points) {
+			// min y
+			if (point.y < min_y)
+				min_y = point.y;
+
+			// min x
+			if (point.x < min_x)
+				min_x = point.x;
+
+			// max x
+			if (point.x > max_x)
+				max_x = point.x;
+
+			// max y
+			if (point.y > max_y)
+				max_y = point.y;
 		}
-
-		std::cout << "y: " << e.points[0].y << ", " << e.points[1].y << "\tx: " << e.points[0].x << ", " << e.points[1].x << std::endl;
-
-		// max y
-		if (e.points[1].y > max_y)
-			max_y = e.points[1].y;
-
-		if (e.points[0].y > max_y) {
-			max_y = e.points[0].y;
-		}
-
-		// min y
-		if (e.points[0].y != 0 && e.points[0].y < min_y) {
-			min_y = e.points[0].y;
-		}
-
-		// min x
-		if (e.points[0].x != 0 && e.points[0].x < min_x) {
-			min_x = e.points[0].x;
-		}
-
-		// max x
-		if (e.points[1].x > max_x)
-			max_x = e.points[1].x;
 	}
 
 	this->pixels.size.x = (int)(ceil(max_y) - floor(min_y));
@@ -110,7 +99,7 @@ void mka::letter::generate_edges() {
 	short numberOfContours;
 	unsigned char *endPtsOfContours;
 	int num_vertices;
-	int glyph_offset = parent_font->get_glyph_offset(parent_font->find_glyph_index(this->ch));
+	unsigned int glyph_offset = parent_font->get_glyph_offset(parent_font->find_glyph_index(this->ch));
 
 	if (glyph_offset < 0) return;
 
@@ -148,8 +137,6 @@ void mka::letter::generate_edges() {
 		n = 1 + get_ushort(endPtsOfContours + numberOfContours * 2 - 2);
 
 		std::cout << "n: " << n << "\tshort: " << get_ushort(endPtsOfContours + numberOfContours * 2 - 2) << std::endl;
-
-		//m = n + 2 * numberOfContours;  // a loose bound on how many vertices we might need
 
 		flagcount = 0;
 
@@ -387,12 +374,15 @@ void mka::letter::rasterize_edges()
 			}
 			std::cout << std::endl;
 
-//			for (int j = this->get_size().x - 1; j >= 0; j--) {
-//				for (int i = 0; i < this->get_size().y; i++)
-//					std::cout << bits[this->pixels[j * (int)this->get_size().x + i] >> 5] << ' ';
-//				std::cout << '\n';
-//			}
-//			std::cout << '\n' << std::endl;
+			const point& size = this->get_size();
+
+			for (int j = (int)size.y-1; j >= 0; j--) {
+				for (int i = 0; i < size.x; i++) {
+					std::cout << bits[this->pixels[j * (int)size.x + i] >> 5] << ' ';
+				}
+				std::cout << '\n';
+			}
+			std::cout << '\n' << std::endl;
 		}
 	}
 }
