@@ -73,6 +73,12 @@ namespace mka {
 			return *this;
 		}
 
+		point& operator*=(point const& multiplier) {
+			this->x *= multiplier.x;
+			this->y *= multiplier.y;
+			return *this;
+		}
+
 		point operator*(point const& multiplier) const {
 			return {this->x*multiplier.x, this->y*multiplier.y};
 		}
@@ -139,7 +145,7 @@ namespace mka {
 			this->points = std::vector<point>(1);
 		}
 
-		static mka::point& calculate_value_from_points(std::vector<mka::point> const& points, double pos, int start_idx, int end_idx);
+		static mka::point calculate_value_from_points(std::vector<mka::point> const& points, double pos, int start_idx, int end_idx);
 
 		mka::point calculate_at_position(double x) const;
 
