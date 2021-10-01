@@ -14,7 +14,6 @@ namespace mka{
 
 	class font {
 	public:
-		static void close_shape(std::vector<bezier_curve>& edges, const std::vector<point>& points);
 
 		explicit font(const std::string &file_path);
 
@@ -29,8 +28,6 @@ namespace mka{
 		void generate_letter(char, float);
 
 		void generate_letter(char, float, float);
-
-		int GetGlyphShape(int glyph_index, mka::bezier_curve **pvertices);
 
 		letter& get_letter(char);
 
@@ -47,12 +44,6 @@ namespace mka{
 		int get_table(const std::string& tag) const
 		{
 			return this->tables.at(tag);
-		}
-
-		void print_ints() const {
-			std::cout << this->index_map << "i   " << this->tables.at("loca") << "l  " << this->tables.at("head") << "h  " << this->tables.at("glyf") << "g  "
-					  << this->tables.at("hhea") << "h1  " << this->tables.at("hmtx") << "h2  " << this->tables.at("kern") << "k  " << this->tables.at("gpos") << "g  "
-					  << this->tables.at("svg") << "s  " << std::endl;
 		}
 
 
