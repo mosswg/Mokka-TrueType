@@ -35,13 +35,41 @@ void mka::letter::calculate_bounding_box() {
 		}
 	}
 
-	this->pixels.size.x = (int)(ceil(max_y) - floor(min_y));
-	this->pixels.size.y = (int)(ceil(max_x) - floor(min_x));
+	this->pixels.size.y = (int)(ceil(max_y) - floor(min_y));
+	this->pixels.size.x = (int)(ceil(max_x) - floor(min_x));
 
 
-	std::cout << "size: " << this->get_size().x << ", " << this->get_size().y << "\nmin: " << min_y << "\tmax: " << max_y << std::endl;
-	std::cout << "min: " << min_x << "\tmax: " << max_x << std::endl;
+	std::cout << "size: " << this->get_size().x << ", " << this->get_size().y << "\ny: min: " << min_y << "\tmax: " << max_y << std::endl;
+	std::cout << "x: min: " << min_x << "\tmax: " << max_x << std::endl;
 }
+
+void close_shape(std::vector<mka::point>& out, bool starts_off_curve, bool control_off_curve, mka::point start, mka::point control, mka::point second) {
+	if (starts_off_curve) {
+		if (control_off_curve) {
+			out.emplace_back((control+second)/2);
+			out.back().flags = 2;
+			out.emplace_back(control);
+			out.back().flags = 2;
+		}
+		out.emplace_back(start);
+		out.back().flags = 2;
+		out.emplace_back(second);
+		out.back().flags = 2;
+	} else {
+		if (control_off_curve) {
+			out.emplace_back(start);
+			out.back().flags = 2;
+			out.emplace_back(control);
+			out.back().flags = 2;
+		}
+		else {
+			out.emplace_back(start);
+			out.back().flags = 1;
+		}
+	}
+}
+
+
 
 void mka::letter::generate_edges() {
 
@@ -105,21 +133,13 @@ void mka::letter::generate_edges() {
 
 	numberOfContours = get_short(parent_font->data + glyph_offset);
 
-	std::cout << "min x: " << get_short(parent_font->data + glyph_offset + 2) << std::endl;
-	std::cout << "min y: " << get_short(parent_font->data + glyph_offset + 4) << std::endl;
-	std::cout << "max x: " << get_short(parent_font->data + glyph_offset + 6) << std::endl;
-	std::cout << "max y: " << get_short(parent_font->data + glyph_offset + 8) << std::endl;
-
-	std::cout << "num_cont: " << numberOfContours << std::endl;
-	for (int i = 1; i <= numberOfContours; i++) {
-		std::cout << "end point: " << get_ushort(parent_font->data + glyph_offset + 8 + (i*2)) << std::endl;
-	}
-
 	std::vector<mka::point> uninterpreted_data{};
 
 	if (numberOfContours > 0) {
 		unsigned char flags = 0, flagcount;
 		endPtsOfContours = (parent_font->data + glyph_offset + 10);
+
+
 		unsigned short instructions_length = get_ushort(parent_font->data + glyph_offset + 10 + numberOfContours * 2);
 		int i;
 		int n;
@@ -206,10 +226,10 @@ void mka::letter::generate_edges() {
 				if (!(flags & POSITIVE_Y_SHORT_VECTOR)) { 		// And the positive y short vector flag is set...
 					/*
 					 * The current y-coordinate is a signed 16-bit delta vector and
-					 * The delta vector is the change in x, so
+					 * The delta vector is the change in y, so
 					 * it will be the current y position plus the next two byte of points combined.
 					 */
-					current_points[0].y = current_points[0].y + (short)((points[0]<<8) | points[1]);
+					current_points[0].y += (short)((points[0]<<8) | points[1]);
 
 					points += 2;
 				}
@@ -219,31 +239,155 @@ void mka::letter::generate_edges() {
 
 		current_points.clear();
 
+		// Point type consts
+		const short MOVE = 0;
+		const short LINE = 1;
+		const short QUAD = 2;
+		const short CUBIC = 3;
+
+
+		// now convert them to our format
+		std::vector<point> out;
+		num_vertices=0;
 		short next_move = 0;
+		bool start_off;
+		bool was_off;
+		point start = {0, 0};
+		point control = {0, 0};
+		point second_control = {0, 0};
+		i = 0;
 		int j = 0;
-		// Convert the previously gotten data to a format we can use.
-		for (i = 0; i < (int)uninterpreted_data.size(); i++) {
-			flags = uninterpreted_data[i].flags;
-			current_points.push_back(uninterpreted_data[i]); // Read the point that we previously retrieved.
-
+		for (auto const& point : uninterpreted_data) {
 			if (next_move == i) {
-				if (i != 0) {
-					edges.emplace_back(current_points);
-					current_points.clear();
-				}
+				if (i != 0)
+					::close_shape(out, was_off, start_off, start, control, second_control);
 
-				next_move = (short)(1 + get_ushort(endPtsOfContours+j*2)); // Get next_move using j as an offset and add 1 to it.
-				++j; // inc j
-			}
-
-			if (flags & ON_CURVE) { // If the current point is on the curve (First point, middle, or end point)...
-				if (current_points.size() != 1) { // and it's not the first point of the curve (middle, or end)...
-					//if (uninterpreted_data[i+1].flags & ON_CURVE) { // and the next point is not on the curve (end point)...
-						edges.emplace_back(current_points); // Create the edge with the gotten points and...
-						current_points.clear(); // Clear the current points vector so that next time through the loop we have a fresh set.
+				// start a new curve
+				start_off = !(point.flags & ON_CURVE);
+				if (start_off) {
+					// if we start off with an off-curve point, then when we need to find a point on the curve
+					// where we can start, and we need to save some state for when we wraparound.
+					control = point;
+					if (!(uninterpreted_data[i + 1].flags & 1)) {
+						std::cout << "1 " << i << '\n';
+						// next point is also a curve point, so interpolate an on-point curve
+						start = (point + uninterpreted_data[i + 1])/2;
+					} else {
+						std::cout << "2 " << i << '\n';
+						// otherwise, just use the next point as our start point
+						start = uninterpreted_data[i + 1];
+						++i; // we're using point i+1 as the starting point, so skip it
+					}
+				} else {
+					start = point;
+				}
+				out.emplace_back(start);
+				out.back().flags = MOVE;
+				was_off = false;
+				next_move = 1 + get_ushort(endPtsOfContours + j * 2);
+				++j;
+			} else {
+				if (!(point.flags & ON_CURVE)) { // if the current point is not on the curve
+					if (was_off) { // two off-curve control points in a row means interpolate an on-curve midpoint
+						std::cout << "3 " << i << '\n';
+						out.emplace_back((control + point)/2);
+						out.back().flags = QUAD;
+						out.emplace_back(control);
+						out.back().flags = QUAD;
+					}
+					control = point;
+					was_off = true;
+				} else {
+					if (was_off) {
+						std::cout << "4 " << i << '\n';
+						out.emplace_back(point);
+						out.back().flags = QUAD;
+						out.emplace_back(control);
+						out.back().flags = QUAD;
+					}
+					else {
+						std::cout << "5 " << i << '\n';
+						out.emplace_back(point);
+						out.back().flags = LINE;
+					}
+					was_off = false;
 				}
 			}
+			i++;
 		}
+
+
+		close_shape(out, was_off, start_off, start, control, second_control);
+
+
+		for (i = 0; i < out.size(); i++) {
+				switch (out[i].flags) {
+					case MOVE:
+						edges.emplace_back(std::vector<point>({out[i]}));
+						break;
+					case LINE:
+						edges.emplace_back(std::vector<point>({out[i], out[++i]}));
+						break;
+					case QUAD:
+						edges.emplace_back(std::vector<point>({out[i], out[++i], out[++i]}));
+						break;
+					case CUBIC:
+						edges.emplace_back(std::vector<point>({out[i], out[++i], out[++i], out[++i]}));
+						break;
+				}
+		}
+
+
+		for (auto const& edge : edges) {
+			switch (edge.points.size()) {
+				case 1:
+					std::cout << "move ";
+					break;
+				case 2:
+					std::cout << "line ";
+					break;
+				case 3:
+					std::cout << "curve ";
+					break;
+				case 4:
+					std::cout << "cubic ";
+					break;
+			}
+			for (auto const& p : edge.points) {
+				std::cout << " " << p.to_string();
+			}
+			std::cout << std::endl;
+		}
+		std::cout << "\n\n" << std::endl;
+
+
+
+//		short next_move = 0;
+//		int j = 0;
+//		// Convert the previously gotten data to a format we can use.
+//		for (i = 0; i < (int)uninterpreted_data.size(); i++) {
+//			flags = uninterpreted_data[i].flags;
+//			current_points.push_back(uninterpreted_data[i]); // Read the point that we previously retrieved.
+//
+//			if (next_move == i) {
+//				if (i != 0) {
+//					edges.emplace_back(current_points);
+//					current_points.clear();
+//				}
+//
+//				next_move = (short)(1 + get_ushort(endPtsOfContours+j*2)); // Get next_move using j as an offset and add 1 to it.
+//				++j; // inc j
+//			}
+//
+//			if (flags & ON_CURVE) { // If the current point is on the curve (First point, middle, or end point)...
+//				if (current_points.size() != 1) { // and it's not the first point of the curve (middle, or end)...
+//					if (uninterpreted_data[i+1].flags & ON_CURVE) { // and the next point is not on the curve (end point)...
+//						edges.emplace_back(current_points); // Create the edge with the gotten points and...
+//						current_points.clear(); // Clear the current points vector so that next time through the loop we have a fresh set.
+//					}
+//				}
+//			}
+//		}
 
 		if (!current_points.empty()) {
 			edges.emplace_back(current_points);
