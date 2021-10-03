@@ -13,8 +13,9 @@ void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& 
 	for (auto const& item : this->points) {
 		std::cout << ((item+origin)*scale).to_string() << '\t';
 	}
-	if (points.empty())
+	if (points.empty()) {
 		return;
+	}
 
 	double width = fabs(points.back().x - points.front().x); 	// This is not accurate because the endpoints are not necessarily the widest point,
 	double height = fabs(points.back().y - points.front().y);	// but it gives a good estimation for our purposes
@@ -33,19 +34,19 @@ void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& 
 		current += origin;
 
 		if (round(current.x) >= out.size.x || round(current.x) < 0) {
-			continue; // So we don't wrap around edges.
+			continue; // So we don't wrap around edges. Should not be necessary
 		}
 		if (round(current.y) >= out.size.y || round(current.y) < 0) {
-			continue; // So we don't write to out of bounds memory.
+			continue; // So we don't write to out of bounds memory. Should not be necessary
 		}
 
 		if (round(current.x) != current_pixel.x || round(current.y) != current_pixel.y || i == 1) {
 			value_from_dist_to_pixel = (1.0/(min_dist_to_pixel+1)) * 255;
 
 //			std::cout << "cx: " << current.x << "\tcy: " << current.y << "\t\t";
-			std::cout << "Writing " << value_from_dist_to_pixel << " to " << current_pixel.to_string() << "\n";
+			std::cout << "Writing " << value_from_dist_to_pixel << " to " << current_pixel.to_string() << ": " << (current.y * (out.size.x * scale.x)) << "\n";
 
-			unsigned char& curr_char = out[(int)((current_pixel.y * out.size.x * scale.x) + current_pixel.x)];
+			unsigned char& curr_char = out[(int)((current_pixel.y * (int)(out.size.x * scale.x)) + current_pixel.x)];
 			curr_char = value_from_dist_to_pixel > curr_char ? (int)round(value_from_dist_to_pixel) : curr_char;
 			min_dist_to_pixel = 10;
 		}
@@ -54,12 +55,8 @@ void mka::bezier_curve::rasterize(mka::bitmap& out, point& origin, point const& 
 
 		dist_to_nearest_pixel = (fabs(current.x - (double)current_pixel.x) + fabs(current.y - double(current_pixel.y)));
 
-
 		min_dist_to_pixel = dist_to_nearest_pixel < min_dist_to_pixel ? dist_to_nearest_pixel : min_dist_to_pixel;
 	}
-
-
-	//origin = points.front() * scale;
 }
 
 mka::point mka::bezier_curve::calculate_value_from_points(std::vector<mka::point> const& points, double t, int start_idx, int end_idx)
